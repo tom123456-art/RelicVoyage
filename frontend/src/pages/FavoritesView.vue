@@ -24,6 +24,11 @@ const noop = () => {}
           </div>
           <h3>{{ item.name }}</h3>
           <p>{{ item.description }}</p>
+          <div class="artifact-favorite-summary artifact-favorite-summary--compact">
+            <span>当前收藏人数</span>
+            <strong>{{ item.favoriteCount }}</strong>
+            <small>人已收藏</small>
+          </div>
           <div class="button-row">
             <RouterLink :to="`/artifacts/${item.id}`" class="button button--secondary">查看详情</RouterLink>
             <form :action="endpoints.artifacts.favoriteRemove" method="post" @submit.prevent="noop">

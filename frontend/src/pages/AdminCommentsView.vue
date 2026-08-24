@@ -1,181 +1,206 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { artifactComments, commentStatusText, reviewArtifactComment } from '@/data/mock'
+import {
+  artifactComments,
+  addArtifactCommentReply,
+  getArtifactCommentRepliesByCommentId,
+} from '@/data/mock'
+import { endpoints } from '@/data/endpoints'
 import { getSession } from '@/utils/session'
 
-const activeFilter = ref('pending')
+const activeReplyId = ref(null)
+const replyDraft = ref('')
+const replyError = ref('')
+const replySuccess = ref('')
 
-const filterOptions = [
-  { key: 'pending', label: '待审核' },
-  { key: 'approved', label: '已通过' },
-  { key: 'rejected', label: '已驳回' },
-  { key: 'all', label: '全部评论' },
-]
-
-const currentReviewer = computed(() => getSession()?.username ?? 'admin')
-const statusCounts = computed(() =>
-  artifactComments.reduce(
-    (bucket, item) => {
-      bucket.all += 1
-      bucket[item.status] += 1
-      return bucket
-    },
-    {
-      all: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-    },
+const currentAdmin = computed(() => getSession()?.username ?? 'admin')
+const commentList = computed(() =>
+  [...artifactComments].sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+)
+const totalReplies = computed(() =>
+  commentList.value.reduce(
+    (total, comment) => total + getArtifactCommentRepliesByCommentId(comment.id).length,
+    0,
   ),
 )
-const reviewList = computed(() => {
-  const order = {
-    pending: 0,
-    rejected: 1,
-    approved: 2,
-  }
+const repliedComments = computed(
+  () =>
+    commentList.value.filter(
+      (comment) => getArtifactCommentRepliesByCommentId(comment.id).length,
+    ).length,
+)
+const pendingReplyCount = computed(() => commentList.value.length - repliedComments.value)
 
-  return [...artifactComments]
-    .filter((item) => activeFilter.value === 'all' || item.status === activeFilter.value)
-    .sort((left, right) => {
-      const orderGap = order[left.status] - order[right.status]
-      if (orderGap !== 0) {
-        return orderGap
-      }
-      return right.createdAt.localeCompare(left.createdAt)
-    })
-})
-
-function getStatusClass(status) {
-  if (status === 'approved') {
-    return 'status--ok'
-  }
-
-  if (status === 'rejected') {
-    return 'status--danger'
-  }
-
-  return 'status--warn'
+function replyCount(comment) {
+  return getArtifactCommentRepliesByCommentId(comment.id).length
 }
 
-function handleReview(commentId, nextStatus) {
-  reviewArtifactComment(commentId, nextStatus, currentReviewer.value)
+function openReply(comment) {
+  replyError.value = ''
+  replySuccess.value = ''
+
+  if (activeReplyId.value === comment.id) {
+    activeReplyId.value = null
+    replyDraft.value = ''
+    return
+  }
+
+  activeReplyId.value = comment.id
+  replyDraft.value = ''
+}
+
+function cancelReply() {
+  activeReplyId.value = null
+  replyDraft.value = ''
+  replyError.value = ''
+}
+
+function handleReplyTyping() {
+  replyError.value = ''
+  replySuccess.value = ''
+}
+
+function handleReplySubmit(comment) {
+  const content = replyDraft.value.trim()
+  replyError.value = ''
+  replySuccess.value = ''
+
+  if (!content) {
+    replyError.value = '请输入回复内容。'
+    return
+  }
+
+  if (content.length < 2) {
+    replyError.value = '回复内容至少输入 2 个字。'
+    return
+  }
+
+  addArtifactCommentReply({
+    commentId: comment.id,
+    username: currentAdmin.value,
+    content,
+  })
+
+  replyDraft.value = ''
+  activeReplyId.value = null
+  replySuccess.value = `已回复「${comment.username}」的评论。`
 }
 </script>
 
 <template>
-  <section class="section-panel">
+  <section class="section-panel comment-reply-page">
     <div class="toolbar">
       <div>
-        <strong>评论审核</strong>
-        <p>集中审核文物评论，控制哪些内容可以在详情页公开展示。</p>
+        <strong>评论回复</strong>
+        <p>围绕具体评论进行回应，回复会直接显示在对应评论下方。</p>
       </div>
     </div>
 
     <div class="comment-review-metrics">
       <article class="comment-review-metric">
-        <span>待审核</span>
-        <strong>{{ statusCounts.pending }}</strong>
-      </article>
-      <article class="comment-review-metric">
-        <span>已通过</span>
-        <strong>{{ statusCounts.approved }}</strong>
-      </article>
-      <article class="comment-review-metric">
-        <span>已驳回</span>
-        <strong>{{ statusCounts.rejected }}</strong>
-      </article>
-      <article class="comment-review-metric">
         <span>全部评论</span>
-        <strong>{{ statusCounts.all }}</strong>
+        <strong>{{ commentList.length }}</strong>
+      </article>
+      <article class="comment-review-metric">
+        <span>已回复评论</span>
+        <strong>{{ repliedComments }}</strong>
+      </article>
+      <article class="comment-review-metric">
+        <span>待回复评论</span>
+        <strong>{{ pendingReplyCount }}</strong>
+      </article>
+      <article class="comment-review-metric">
+        <span>回复总数</span>
+        <strong>{{ totalReplies }}</strong>
       </article>
     </div>
 
-    <section class="table-panel comment-review-panel">
-      <div class="comment-filter-bar">
-        <button
-          v-for="item in filterOptions"
-          :key="item.key"
-          type="button"
-          class="comment-filter-chip"
-          :class="{ 'is-active': activeFilter === item.key }"
-          @click="activeFilter = item.key"
-        >
-          {{ item.label }}
-          <span>{{ statusCounts[item.key] }}</span>
-        </button>
+    <section class="table-panel comment-reply-panel">
+      <div class="comment-reply-panel__head">
+        <div>
+          <strong>评论列表</strong>
+          <p>选择一条评论，回复编辑器会展开在该评论的下方。</p>
+        </div>
+        <p v-if="replySuccess" class="comment-feedback">{{ replySuccess }}</p>
       </div>
 
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>文物</th>
-              <th>评论人</th>
-              <th>提交时间</th>
-              <th>评论内容</th>
-              <th>状态</th>
-              <th>审核信息</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="comment in reviewList" :key="comment.id">
-              <td>
-                <div class="table-cell-strong">{{ comment.artifactName }}</div>
-              </td>
-              <td>{{ comment.username }}</td>
-              <td>{{ comment.createdAt }}</td>
-              <td>
-                <div class="comment-review-content">{{ comment.content }}</div>
-              </td>
-              <td>
-                <span class="status" :class="getStatusClass(comment.status)">
-                  {{ commentStatusText[comment.status] }}
-                </span>
-              </td>
-              <td>
-                <div class="comment-review-meta">
-                  <strong v-if="comment.reviewedBy">{{ comment.reviewedBy }}</strong>
-                  <span>{{ comment.reviewedAt || '待审核' }}</span>
-                </div>
-              </td>
-              <td>
-                <div class="inline-actions comment-review-actions">
-                  <button
-                    v-if="comment.status !== 'approved'"
-                    type="button"
-                    class="review-action review-action--approve"
-                    @click="handleReview(comment.id, 'approved')"
-                  >
-                    通过
-                  </button>
-                  <button
-                    v-if="comment.status !== 'rejected'"
-                    type="button"
-                    class="review-action review-action--reject"
-                    @click="handleReview(comment.id, 'rejected')"
-                  >
-                    驳回
-                  </button>
-                  <button
-                    v-if="comment.status !== 'pending'"
-                    type="button"
-                    class="review-action review-action--reset"
-                    @click="handleReview(comment.id, 'pending')"
-                  >
-                    退回待审
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-if="commentList.length" class="comment-reply-list">
+        <article v-for="comment in commentList" :key="comment.id" class="comment-thread-card">
+          <div class="comment-thread-card__head">
+            <div>
+              <span class="comment-thread-card__artifact">{{ comment.artifactName }}</span>
+              <div class="comment-thread-card__meta">
+                <strong>{{ comment.username }}</strong>
+                <span>{{ comment.createdAt }}</span>
+              </div>
+            </div>
+            <span
+              class="status"
+              :class="replyCount(comment) ? 'status--ok' : 'status--warn'"
+            >
+              {{ replyCount(comment) ? '已回复' : '待回复' }}
+            </span>
+          </div>
+
+          <p class="comment-thread-card__content">{{ comment.content }}</p>
+
+          <div v-if="replyCount(comment)" class="comment-replies">
+            <article
+              v-for="reply in getArtifactCommentRepliesByCommentId(comment.id)"
+              :key="reply.id"
+              class="comment-reply"
+            >
+              <div class="comment-reply__meta">
+                <span class="comment-reply__label">回复</span>
+                <strong>{{ reply.username }}</strong>
+                <span>{{ reply.createdAt }}</span>
+              </div>
+              <p>{{ reply.content }}</p>
+            </article>
+          </div>
+
+          <div class="comment-thread-card__footer">
+            <span class="comment-thread-card__count">
+              {{ replyCount(comment) }} 条回复
+            </span>
+            <button
+              type="button"
+              class="review-action review-action--reply"
+              @click="openReply(comment)"
+            >
+              {{ activeReplyId === comment.id ? '收起回复' : '回复' }}
+            </button>
+          </div>
+
+          <form
+            v-if="activeReplyId === comment.id"
+            class="comment-reply-editor"
+            :action="endpoints.comments.reply"
+            method="post"
+            @submit.prevent="handleReplySubmit(comment)"
+          >
+            <input type="hidden" name="commentId" :value="comment.id" />
+            <textarea
+              v-model="replyDraft"
+              class="textarea comment-reply-editor__textarea"
+              name="content"
+              placeholder="写下针对这条评论的回复。"
+              @input="handleReplyTyping"
+            ></textarea>
+            <div class="comment-reply-editor__footer">
+              <p v-if="replyError" class="field-error">{{ replyError }}</p>
+              <div class="button-row">
+                <button type="button" class="button button--ghost" @click="cancelReply">
+                  取消
+                </button>
+                <button type="submit" class="button button--primary">发布回复</button>
+              </div>
+            </div>
+          </form>
+        </article>
       </div>
 
-      <div v-if="!reviewList.length" class="empty">
-        当前筛选条件下没有评论记录。
-      </div>
+      <div v-else class="empty">当前还没有评论记录。</div>
     </section>
   </section>
 </template>

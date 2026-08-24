@@ -240,9 +240,6 @@ const initialArtifactComments = [
     content: '器型很稳，纹饰层次也很清楚，放大看细节会更有青铜礼器的厚重感。',
     likeCount: 36,
     likedBy: ['林若', '顾屿', '周岚'],
-    status: 'approved',
-    reviewedBy: 'admin',
-    reviewedAt: '2026-08-18 15:06',
   },
   {
     id: 2,
@@ -253,9 +250,6 @@ const initialArtifactComments = [
     content: '如果详情里能再补一段用途背景，会更容易理解它在礼制中的位置。',
     likeCount: 4,
     likedBy: [],
-    status: 'pending',
-    reviewedBy: '',
-    reviewedAt: '',
   },
   {
     id: 3,
@@ -266,9 +260,6 @@ const initialArtifactComments = [
     content: '釉色非常温润，页面上的图片已经很好看了，线下实物应该会更惊艳。',
     likeCount: 48,
     likedBy: ['周岚', '顾屿'],
-    status: 'approved',
-    reviewedBy: 'curator01',
-    reviewedAt: '2026-08-20 11:40',
   },
   {
     id: 4,
@@ -279,9 +270,6 @@ const initialArtifactComments = [
     content: '构图很满，但看起来一点都不乱，青花发色也特别稳。',
     likeCount: 22,
     likedBy: ['林若'],
-    status: 'approved',
-    reviewedBy: 'admin',
-    reviewedAt: '2026-08-22 16:35',
   },
   {
     id: 5,
@@ -292,34 +280,56 @@ const initialArtifactComments = [
     content: '评论内容太简单，建议补充更多画面观察后再发布。',
     likeCount: 1,
     likedBy: [],
-    status: 'rejected',
-    reviewedBy: 'admin',
-    reviewedAt: '2026-08-24 09:05',
   },
 ]
 
 export const artifactComments = reactive(initialArtifactComments.map((item) => ({ ...item })))
 
-export const commentStatusText = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已驳回',
+const initialArtifactCommentReplies = [
+  {
+    id: 1,
+    commentId: 1,
+    username: 'admin',
+    createdAt: '2026-08-18 15:06',
+    content: '感谢你的观察。详情页后续会补充纹饰局部和器物用途说明。',
+  },
+  {
+    id: 2,
+    commentId: 3,
+    username: 'curator01',
+    createdAt: '2026-08-20 11:40',
+    content: '确实如此，线下展陈会结合器物工艺和釉色变化进行说明。',
+  },
+  {
+    id: 3,
+    commentId: 4,
+    username: 'admin',
+    createdAt: '2026-08-22 16:35',
+    content: '谢谢你的反馈，我们会继续补充青花发色和绘画构图的细节资料。',
+  },
+  {
+    id: 4,
+    commentId: 5,
+    username: 'admin',
+    createdAt: '2026-08-24 09:05',
+    content: '感谢建议，后续会在评论区增加更具体的画面观察示例。',
+  },
+]
+
+export const artifactCommentReplies = reactive(
+  initialArtifactCommentReplies.map((item) => ({ ...item })),
+)
+
+export function getArtifactCommentsByArtifactId(artifactId) {
+  return [...artifactComments]
+    .filter((item) => item.artifactId === Number(artifactId))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
-export function getArtifactCommentsByArtifactId(artifactId, status) {
-  return [...artifactComments]
-    .filter((item) => {
-      if (item.artifactId !== Number(artifactId)) {
-        return false
-      }
-
-      if (!status) {
-        return true
-      }
-
-      return item.status === status
-    })
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+export function getArtifactCommentRepliesByCommentId(commentId) {
+  return artifactCommentReplies
+    .filter((item) => item.commentId === Number(commentId))
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
 }
 
 export function addArtifactComment({ artifactId, username, content }) {
@@ -337,32 +347,28 @@ export function addArtifactComment({ artifactId, username, content }) {
     content: content.trim(),
     likeCount: 0,
     likedBy: [],
-    status: 'pending',
-    reviewedBy: '',
-    reviewedAt: '',
   }
 
   artifactComments.unshift(comment)
   return comment
 }
 
-export function reviewArtifactComment(commentId, nextStatus, reviewer = 'admin') {
-  const target = artifactComments.find((item) => item.id === commentId)
-  if (!target) {
+export function addArtifactCommentReply({ commentId, username, content }) {
+  const comment = artifactComments.find((item) => item.id === Number(commentId))
+  if (!comment || !content?.trim()) {
     return null
   }
 
-  target.status = nextStatus
-
-  if (nextStatus === 'pending') {
-    target.reviewedBy = ''
-    target.reviewedAt = ''
-    return target
+  const reply = {
+    id: Date.now(),
+    commentId: comment.id,
+    username: username?.trim() || 'admin',
+    createdAt: formatDateTime(),
+    content: content.trim(),
   }
 
-  target.reviewedBy = reviewer
-  target.reviewedAt = formatDateTime()
-  return target
+  artifactCommentReplies.push(reply)
+  return reply
 }
 
 export function toggleArtifactCommentLike(commentId, username) {

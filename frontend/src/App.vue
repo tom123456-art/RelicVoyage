@@ -56,8 +56,8 @@ adminSections[0].items[0].match = (path) => path === '/admin' || path === '/admi
 if (!adminSections[0].items.some((item) => item.to === '/admin/comments')) {
   adminSections[0].items.push({
     to: '/admin/comments',
-    label: '评论审核',
-    desc: '审核文物评论与展示状态',
+    label: '评论回复',
+    desc: '回复文物评论与查看交流内容',
   })
 }
 

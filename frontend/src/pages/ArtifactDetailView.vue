@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import {
   addArtifactComment,
   artifacts,
+  getArtifactCommentRepliesByCommentId,
   getArtifactCommentsByArtifactId,
   getArtifactById,
   getMuseumById,
@@ -40,9 +41,9 @@ const relatedArtifacts = computed(() =>
         .slice(0, 3)
     : [],
 )
-const approvedComments = computed(() =>
+const displayedComments = computed(() =>
   artifact.value
-    ? getArtifactCommentsByArtifactId(artifact.value.id, 'approved').sort((left, right) => {
+    ? getArtifactCommentsByArtifactId(artifact.value.id).sort((left, right) => {
         if (right.likeCount !== left.likeCount) {
           return right.likeCount - left.likeCount
         }
@@ -51,15 +52,6 @@ const approvedComments = computed(() =>
       })
     : [],
 )
-const pendingCommentCount = computed(() => {
-  if (!artifact.value || !currentSession.value?.username) {
-    return 0
-  }
-
-  return getArtifactCommentsByArtifactId(artifact.value.id, 'pending').filter(
-    (item) => item.username === currentSession.value.username,
-  ).length
-})
 
 function toggleComments() {
   commentsOpen.value = !commentsOpen.value
@@ -97,7 +89,7 @@ function handleCommentSubmit() {
   })
 
   commentForm.content = ''
-  commentSuccess.value = '评论已提交，等待管理员审核后展示。'
+  commentSuccess.value = '评论已发布，管理员回复后会显示在评论下方。'
   commentsOpen.value = true
 }
 
@@ -165,8 +157,16 @@ function handleCommentLike(commentId) {
           style="margin-top: 1rem"
         >
           <input type="hidden" name="artifactId" :value="artifact.id" />
-          <div class="button-row">
-            <button type="submit" class="button button--primary">收藏</button>
+          <div class="artifact-action-row">
+            <div class="artifact-favorite-summary" aria-label="当前收藏人数">
+              <span>当前收藏人数</span>
+              <strong>{{ artifact.favoriteCount }}</strong>
+              <small>人已收藏</small>
+            </div>
+            <button type="submit" class="button button--primary">
+              收藏
+              <span class="button-count">{{ artifact.favoriteCount }}</span>
+            </button>
             <RouterLink to="/artifacts" class="button button--ghost">返回列表</RouterLink>
           </div>
         </form>
@@ -185,7 +185,7 @@ function handleCommentLike(commentId) {
             <strong>文物评论</strong>
             <small>默认收起，点击后查看评论并发表评论</small>
           </span>
-          <span class="comment-toggle__summary">{{ approvedComments.length }} 条已展示</span>
+          <span class="comment-toggle__summary">{{ displayedComments.length }} 条评论</span>
           <span class="comment-toggle__icon">⌄</span>
         </button>
 
@@ -206,9 +206,6 @@ function handleCommentLike(commentId) {
           <div class="comment-panel__meta">
             <p v-if="commentError" class="field-error">{{ commentError }}</p>
             <p v-else-if="commentSuccess" class="comment-feedback">{{ commentSuccess }}</p>
-            <p v-if="pendingCommentCount" class="comment-feedback comment-feedback--muted">
-              你当前有 {{ pendingCommentCount }} 条评论正在等待审核。
-            </p>
           </div>
 
           <div class="comment-feed">
@@ -218,12 +215,29 @@ function handleCommentLike(commentId) {
             </div>
 
             <div class="comment-list">
-              <article v-for="item in approvedComments" :key="item.id" class="comment-card">
+              <article v-for="item in displayedComments" :key="item.id" class="comment-card">
                 <div class="comment-card__meta">
                   <strong>{{ item.username }}</strong>
                   <span>{{ item.createdAt }}</span>
                 </div>
                 <p>{{ item.content }}</p>
+                <div
+                  v-if="getArtifactCommentRepliesByCommentId(item.id).length"
+                  class="comment-replies"
+                >
+                  <article
+                    v-for="reply in getArtifactCommentRepliesByCommentId(item.id)"
+                    :key="reply.id"
+                    class="comment-reply"
+                  >
+                    <div class="comment-reply__meta">
+                      <span class="comment-reply__label">回复</span>
+                      <strong>{{ reply.username }}</strong>
+                      <span>{{ reply.createdAt }}</span>
+                    </div>
+                    <p>{{ reply.content }}</p>
+                  </article>
+                </div>
                 <div class="comment-card__footer">
                   <button
                     type="button"
@@ -237,8 +251,8 @@ function handleCommentLike(commentId) {
                 </div>
               </article>
 
-              <div v-if="!approvedComments.length" class="empty comment-empty">
-                当前还没有已展示评论，欢迎留下第一条看法。
+              <div v-if="!displayedComments.length" class="empty comment-empty">
+                当前还没有评论，欢迎留下第一条看法。
               </div>
             </div>
           </div>

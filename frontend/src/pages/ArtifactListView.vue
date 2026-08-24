@@ -105,13 +105,19 @@ function resetSearch() {
             <div class="card-meta">
               <span>{{ item.museumName }}</span>
               <span>{{ item.origin }}</span>
-              <span>收藏 {{ item.favoriteCount }}</span>
+              <span class="artifact-popularity">
+                <span>收藏人数</span>
+                <strong>{{ item.favoriteCount }}</strong>
+              </span>
             </div>
             <div class="button-row">
               <RouterLink :to="`/artifacts/${item.id}`" class="button button--secondary">详情</RouterLink>
               <form :action="endpoints.artifacts.favoriteAdd" method="post" @submit.prevent="noop">
                 <input type="hidden" name="artifactId" :value="item.id" />
-                <button type="submit" class="button button--primary">收藏</button>
+                <button type="submit" class="button button--primary">
+                  收藏
+                  <span class="button-count">{{ item.favoriteCount }}</span>
+                </button>
               </form>
             </div>
           </div>

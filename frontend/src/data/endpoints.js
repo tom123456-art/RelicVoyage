@@ -21,4 +21,7 @@ export const endpoints = {
     search: '/api/admin/users/search',
     save: '/api/admin/users/save',
   },
+  comments: {
+    reply: '/api/admin/comments/reply',
+  },
 }
