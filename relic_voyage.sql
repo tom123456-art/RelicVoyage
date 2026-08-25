@@ -9,8 +9,8 @@ USE relic_voyage;
 
 -- User and administrator accounts share one table. The role column controls access.
 CREATE TABLE IF NOT EXISTS user_accounts (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    username VARCHAR(50) NOT NULL,
+                                             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                             username VARCHAR(50) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('USER', 'ADMIN') NOT NULL DEFAULT 'USER',
     phone VARCHAR(20) NULL,
@@ -26,12 +26,12 @@ CREATE TABLE IF NOT EXISTS user_accounts (
     UNIQUE KEY uk_user_accounts_phone (phone),
     UNIQUE KEY uk_user_accounts_email (email),
     KEY idx_user_accounts_role_status (role, status)
-) ENGINE=InnoDB;
+    ) ENGINE=InnoDB;
 
 -- Museum information shown in the museum list and detail pages.
 CREATE TABLE IF NOT EXISTS museums (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    name VARCHAR(150) NOT NULL,
+                                       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                       name VARCHAR(150) NOT NULL,
     city VARCHAR(50) NOT NULL,
     address VARCHAR(255) NOT NULL,
     open_time VARCHAR(100) NULL,
@@ -45,12 +45,12 @@ CREATE TABLE IF NOT EXISTS museums (
     PRIMARY KEY (id),
     KEY idx_museums_city_status (city, status),
     KEY idx_museums_name (name)
-) ENGINE=InnoDB;
+    ) ENGINE=InnoDB;
 
 -- Artifact information. A museum's artifactIds list is derived from museum_id.
 CREATE TABLE IF NOT EXISTS cultural_artifacts (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    name VARCHAR(150) NOT NULL,
+                                                  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                                  name VARCHAR(150) NOT NULL,
     dynasty VARCHAR(50) NOT NULL,
     material VARCHAR(50) NOT NULL,
     artifact_type VARCHAR(50) NOT NULL,
@@ -66,117 +66,112 @@ CREATE TABLE IF NOT EXISTS cultural_artifacts (
     KEY idx_cultural_artifacts_search (dynasty, material, artifact_type, status),
     KEY idx_cultural_artifacts_museum_status (museum_id, status),
     CONSTRAINT fk_cultural_artifacts_museum
-        FOREIGN KEY (museum_id) REFERENCES museums (id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-) ENGINE=InnoDB;
+    FOREIGN KEY (museum_id) REFERENCES museums (id)
+                                                           ON UPDATE CASCADE
+                                                           ON DELETE RESTRICT
+    ) ENGINE=InnoDB;
 
 -- One row per user/artifact pair. This supports add, remove and favorite counts.
 CREATE TABLE IF NOT EXISTS artifact_favorites (
-    user_id BIGINT UNSIGNED NOT NULL,
-    artifact_id BIGINT UNSIGNED NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, artifact_id),
+                                                  user_id BIGINT UNSIGNED NOT NULL,
+                                                  artifact_id BIGINT UNSIGNED NOT NULL,
+                                                  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                  PRIMARY KEY (user_id, artifact_id),
     KEY idx_artifact_favorites_artifact (artifact_id),
     CONSTRAINT fk_artifact_favorites_user
-        FOREIGN KEY (user_id) REFERENCES user_accounts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user_accounts (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
     CONSTRAINT fk_artifact_favorites_artifact
-        FOREIGN KEY (artifact_id) REFERENCES cultural_artifacts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-) ENGINE=InnoDB;
+    FOREIGN KEY (artifact_id) REFERENCES cultural_artifacts (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+    ) ENGINE=InnoDB;
 
 -- Comments are displayed directly. Administrators can respond through comment_replies.
 CREATE TABLE IF NOT EXISTS artifact_comments (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    artifact_id BIGINT UNSIGNED NOT NULL,
-    user_id BIGINT UNSIGNED NOT NULL,
-    content VARCHAR(2000) NOT NULL,
+                                                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                                 artifact_id BIGINT UNSIGNED NOT NULL,
+                                                 user_id BIGINT UNSIGNED NOT NULL,
+                                                 content VARCHAR(2000) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_artifact_comments_artifact_created (artifact_id, created_at),
     KEY idx_artifact_comments_user_created (user_id, created_at),
     CONSTRAINT fk_artifact_comments_artifact
-        FOREIGN KEY (artifact_id) REFERENCES cultural_artifacts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    FOREIGN KEY (artifact_id) REFERENCES cultural_artifacts (id)
+                                                           ON UPDATE CASCADE
+                                                           ON DELETE CASCADE,
     CONSTRAINT fk_artifact_comments_user
-        FOREIGN KEY (user_id) REFERENCES user_accounts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-) ENGINE=InnoDB;
+    FOREIGN KEY (user_id) REFERENCES user_accounts (id)
+                                                           ON UPDATE CASCADE
+                                                           ON DELETE CASCADE
+    ) ENGINE=InnoDB;
 
 -- One comment can have multiple administrator replies.
 CREATE TABLE IF NOT EXISTS comment_replies (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    comment_id BIGINT UNSIGNED NOT NULL,
-    admin_id BIGINT UNSIGNED NOT NULL,
-    content VARCHAR(2000) NOT NULL,
+                                               id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                               comment_id BIGINT UNSIGNED NOT NULL,
+                                               admin_id BIGINT UNSIGNED NOT NULL,
+                                               content VARCHAR(2000) NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_comment_replies_comment_created (comment_id, created_at),
     KEY idx_comment_replies_admin_created (admin_id, created_at),
     CONSTRAINT fk_comment_replies_comment
-        FOREIGN KEY (comment_id) REFERENCES artifact_comments (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES artifact_comments (id)
+                                                           ON UPDATE CASCADE
+                                                           ON DELETE CASCADE,
     CONSTRAINT fk_comment_replies_admin
-        FOREIGN KEY (admin_id) REFERENCES user_accounts (id)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-) ENGINE=InnoDB;
+    FOREIGN KEY (admin_id) REFERENCES user_accounts (id)
+                                                           ON UPDATE CASCADE
+                                                           ON DELETE RESTRICT
+    ) ENGINE=InnoDB;
 
 -- One row per user/comment pair. Comment likeCount is COUNT(*) from this table.
 CREATE TABLE IF NOT EXISTS comment_likes (
-    comment_id BIGINT UNSIGNED NOT NULL,
-    user_id BIGINT UNSIGNED NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (comment_id, user_id),
+                                             comment_id BIGINT UNSIGNED NOT NULL,
+                                             user_id BIGINT UNSIGNED NOT NULL,
+                                             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                             PRIMARY KEY (comment_id, user_id),
     KEY idx_comment_likes_user (user_id),
     CONSTRAINT fk_comment_likes_comment
-        FOREIGN KEY (comment_id) REFERENCES artifact_comments (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    FOREIGN KEY (comment_id) REFERENCES artifact_comments (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
     CONSTRAINT fk_comment_likes_user
-        FOREIGN KEY (user_id) REFERENCES user_accounts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-) ENGINE=InnoDB;
+    FOREIGN KEY (user_id) REFERENCES user_accounts (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+    ) ENGINE=InnoDB;
 
 -- Optional browsing history for the user dashboard's trend and activity widgets.
 CREATE TABLE IF NOT EXISTS user_browse_history (
-    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    user_id BIGINT UNSIGNED NOT NULL,
-    artifact_id BIGINT UNSIGNED NULL,
-    museum_id BIGINT UNSIGNED NULL,
-    duration_seconds INT UNSIGNED NOT NULL DEFAULT 0,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
+                                                   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                                   user_id BIGINT UNSIGNED NOT NULL,
+                                                   artifact_id BIGINT UNSIGNED NULL,
+                                                   museum_id BIGINT UNSIGNED NULL,
+                                                   duration_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+                                                   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                                   PRIMARY KEY (id),
     KEY idx_user_browse_history_user_time (user_id, created_at),
     KEY idx_user_browse_history_artifact_time (artifact_id, created_at),
     KEY idx_user_browse_history_museum_time (museum_id, created_at),
-    CONSTRAINT chk_user_browse_history_target
-        CHECK (
-            (artifact_id IS NOT NULL AND museum_id IS NULL)
-            OR (artifact_id IS NULL AND museum_id IS NOT NULL)
-        ),
     CONSTRAINT fk_user_browse_history_user
-        FOREIGN KEY (user_id) REFERENCES user_accounts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user_accounts (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
     CONSTRAINT fk_user_browse_history_artifact
-        FOREIGN KEY (artifact_id) REFERENCES cultural_artifacts (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE,
+    FOREIGN KEY (artifact_id) REFERENCES cultural_artifacts (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
     CONSTRAINT fk_user_browse_history_museum
-        FOREIGN KEY (museum_id) REFERENCES museums (id)
-        ON UPDATE CASCADE
-        ON DELETE CASCADE
-) ENGINE=InnoDB;
+    FOREIGN KEY (museum_id) REFERENCES museums (id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+    ) ENGINE=InnoDB;
 
 -- ============================================================
 -- Repeatable sample data
@@ -185,8 +180,8 @@ CREATE TABLE IF NOT EXISTS user_browse_history (
 -- Target: MySQL 8.0+
 -- This single script creates the schema and loads repeatable sample data.
 -- This file uses INSERT IGNORE so it can be run repeatedly without deleting
--- existing application data. Image URLs are left NULL until licensed image
--- assets are added by the project.
+-- existing application data. Museum images are served from the frontend's
+-- public media directory.
 
 USE relic_voyage;
 SET NAMES utf8mb4;
@@ -212,7 +207,7 @@ VALUES
         '08:30 - 17:00，周一闭馆',
         116.397155,
         39.916345,
-        NULL,
+        '/museum-1.jpg',
         '以明清宫廷建筑、宫廷历史和历代艺术珍藏为核心的综合性博物馆，收藏有大量书画、陶瓷、宫廷器物和古琴文物。',
         'ACTIVE'
     ),
@@ -224,7 +219,7 @@ VALUES
         '09:00 - 17:30，周一闭馆',
         116.401234,
         39.904805,
-        NULL,
+        '/museum-2.jpg',
         '以古代中国和近现代中国陈列为主要内容的国家级综合博物馆，收藏青铜器、陶器、玉器和近现代历史文物。',
         'ACTIVE'
     ),
@@ -236,7 +231,7 @@ VALUES
         '09:00 - 17:00，周一闭馆',
         112.989683,
         28.213296,
-        NULL,
+        '/museum-3.jpg',
         '湖南省重要历史文化博物馆，以长沙马王堆汉墓出土文物、湖湘历史和古代艺术收藏为特色。',
         'ACTIVE'
     ),
@@ -248,7 +243,7 @@ VALUES
         '08:30 - 18:00',
         104.218600,
         31.001400,
-        NULL,
+        '/museum-4.jpg',
         '依托三星堆遗址建设的专题博物馆，集中展示古蜀文明的青铜器、金器、玉器和祭祀遗存。',
         'ACTIVE'
     ),
@@ -260,7 +255,7 @@ VALUES
         '09:00 - 17:00，周一闭馆',
         121.475700,
         31.230400,
-        NULL,
+        '/museum-5.jpg',
         '以中国古代艺术为主要收藏方向的综合性博物馆，重点展示青铜器、陶瓷器、书画和工艺美术。',
         'ACTIVE'
     ),
@@ -272,7 +267,7 @@ VALUES
         '08:30 - 19:00',
         108.953500,
         34.221900,
-        NULL,
+        '/museum-6.jpg',
         '以陕西地区周秦汉唐历史和出土文物为重点的国家一级博物馆，馆藏金银器、青铜器、陶俑和唐代文物具有代表性。',
         'ACTIVE'
     );
@@ -843,12 +838,12 @@ VALUES
 
 -- Keep the cached display count consistent with the normalized favorite relation.
 UPDATE cultural_artifacts a
-LEFT JOIN (
+    LEFT JOIN (
     SELECT artifact_id, COUNT(*) AS total
     FROM artifact_favorites
     GROUP BY artifact_id
-) f ON f.artifact_id = a.id
-SET a.favorite_count = COALESCE(f.total, 0);
+    ) f ON f.artifact_id = a.id
+    SET a.favorite_count = COALESCE(f.total, 0);
 
 -- Comments are immediately visible. Administrator responses are stored separately.
 INSERT IGNORE INTO artifact_comments
@@ -1133,9 +1128,9 @@ SELECT
     u.id,
     DATE_ADD(c.created_at, INTERVAL (u.id + c.id) MINUTE)
 FROM artifact_comments c
-JOIN user_accounts u
-    ON u.role = 'USER'
-   AND u.status = 'ACTIVE'
+         JOIN user_accounts u
+              ON u.role = 'USER'
+                  AND u.status = 'ACTIVE'
 WHERE c.id BETWEEN 1 AND 82
   AND MOD(u.id - 3, 22) < (1 + MOD(c.id * 7, 15));
 
