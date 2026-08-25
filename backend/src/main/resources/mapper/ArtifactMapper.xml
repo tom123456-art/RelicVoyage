@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.ArtifactMapper">
+
+    <resultMap id="artifactPageMap" type="com.example.dto.ArtifactPageDTO">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="dynasty" property="dynasty"/>
+        <result column="material" property="material"/>
+        <result column="type" property="type"/>
+        <result column="museumId" property="museumId"/>
+        <result column="museumName" property="museumName"/>
+        <result column="origin" property="origin"/>
+        <result column="imageUrl" property="imageUrl"/>
+        <result column="description" property="description"/>
+        <result column="favoriteCount" property="favoriteCount"/>
+    </resultMap>
+
+    <sql id="artifactPageColumns">
+        a.id,
+        a.name,
+        a.dynasty,
+        a.material,
+        a.artifact_type AS type,
+        a.museum_id AS museumId,
+        m.name AS museumName,
+        a.origin,
+        a.image_url AS imageUrl,
+        a.description,
+        a.favorite_count AS favoriteCount
+    </sql>
+
+    <select id="selectArtifactPageList" parameterType="com.example.dto.ArtifactQueryDTO" resultMap="artifactPageMap">
+        SELECT
+        <include refid="artifactPageColumns"/>
+        FROM cultural_artifacts a
+        INNER JOIN museums m ON a.museum_id = m.id
+        WHERE a.status = 'ONLINE'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                a.name LIKE CONCAT('%', #{keyword}, '%')
+                OR a.origin LIKE CONCAT('%', #{keyword}, '%')
+                OR a.description LIKE CONCAT('%', #{keyword}, '%')
+                OR m.name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        <if test="dynasty != null and dynasty != ''">
+            AND a.dynasty = #{dynasty}
+        </if>
+        <if test="material != null and material != ''">
+            AND a.material = #{material}
+        </if>
+        <if test="type != null and type != ''">
+            AND a.artifact_type = #{type}
+        </if>
+        ORDER BY a.id ASC
+    </select>
+
+    <select id="selectArtifactDetailById" resultMap="artifactPageMap">
+        SELECT
+        <include refid="artifactPageColumns"/>
+        FROM cultural_artifacts a
+        INNER JOIN museums m ON a.museum_id = m.id
+        WHERE a.status = 'ONLINE'
+          AND a.id = #{id}
+    </select>
+
+    <update id="updateArtifactImageUrl">
+        UPDATE cultural_artifacts
+        SET image_url = #{imageUrl}
+        WHERE id = #{id}
+          AND (image_url IS NULL OR TRIM(image_url) = '')
+    </update>
+</mapper>
