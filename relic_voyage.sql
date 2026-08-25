@@ -159,11 +159,6 @@ CREATE TABLE IF NOT EXISTS user_browse_history (
     KEY idx_user_browse_history_user_time (user_id, created_at),
     KEY idx_user_browse_history_artifact_time (artifact_id, created_at),
     KEY idx_user_browse_history_museum_time (museum_id, created_at),
-    CONSTRAINT chk_user_browse_history_target
-        CHECK (
-            (artifact_id IS NOT NULL AND museum_id IS NULL)
-            OR (artifact_id IS NULL AND museum_id IS NOT NULL)
-        ),
     CONSTRAINT fk_user_browse_history_user
         FOREIGN KEY (user_id) REFERENCES user_accounts (id)
         ON UPDATE CASCADE
