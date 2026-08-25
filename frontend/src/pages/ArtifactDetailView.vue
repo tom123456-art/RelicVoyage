@@ -1,123 +1,75 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  addArtifactComment,
-  artifacts,
-  getArtifactCommentRepliesByCommentId,
-  getArtifactCommentsByArtifactId,
-  getArtifactById,
-  getMuseumById,
-  toggleArtifactCommentLike,
-} from '@/data/mock'
 import { endpoints } from '@/data/endpoints'
-import { getSession } from '@/utils/session'
+import { fetchArtifactById, fetchArtifacts, resolveArtifactImage } from '@/api/artifacts'
 
 const route = useRoute()
 const noop = () => {}
-const commentsOpen = ref(false)
-const commentError = ref('')
-const commentSuccess = ref('')
-const commentForm = reactive({
-  content: '',
-})
 
-const artifact = computed(() => getArtifactById(route.params.id))
+const loading = ref(false)
+const error = ref('')
+const artifact = ref(null)
+const relatedArtifacts = ref([])
+
 const museum = computed(() =>
-  artifact.value ? getMuseumById(artifact.value.museumId) : null,
-)
-const currentSession = computed(() => {
-  route.fullPath
-  return getSession()
-})
-const relatedArtifacts = computed(() =>
   artifact.value
-    ? artifacts
-        .filter(
-          (item) =>
-            item.museumId === artifact.value.museumId &&
-            item.id !== artifact.value.id,
-        )
-        .slice(0, 3)
-    : [],
-)
-const displayedComments = computed(() =>
-  artifact.value
-    ? getArtifactCommentsByArtifactId(artifact.value.id).sort((left, right) => {
-        if (right.likeCount !== left.likeCount) {
-          return right.likeCount - left.likeCount
-        }
-
-        return right.createdAt.localeCompare(left.createdAt)
-      })
-    : [],
+    ? {
+        id: artifact.value.museumId,
+        name: artifact.value.museumName,
+      }
+    : null,
 )
 
-function toggleComments() {
-  commentsOpen.value = !commentsOpen.value
-}
-
-function handleCommentTyping() {
-  commentError.value = ''
-  commentSuccess.value = ''
-}
-
-function handleCommentSubmit() {
-  const content = commentForm.content.trim()
-
-  commentError.value = ''
-  commentSuccess.value = ''
-
-  if (!artifact.value) {
+async function loadArtifact(id) {
+  if (!id) {
     return
   }
 
-  if (!content) {
-    commentError.value = '请输入评论内容后再提交。'
-    return
+  loading.value = true
+  error.value = ''
+  artifact.value = null
+  relatedArtifacts.value = []
+
+  try {
+    const currentArtifact = await fetchArtifactById(id)
+    artifact.value = currentArtifact
+
+    const allArtifacts = await fetchArtifacts()
+    relatedArtifacts.value = allArtifacts
+      .filter((item) => item.museumId === currentArtifact.museumId && item.id !== currentArtifact.id)
+      .slice(0, 3)
+  } catch (err) {
+    error.value = '文物详情加载失败，请检查后端服务和数据库连接。'
+    console.error(err)
+  } finally {
+    loading.value = false
   }
-
-  if (content.length < 6) {
-    commentError.value = '评论内容至少输入 6 个字。'
-    return
-  }
-
-  addArtifactComment({
-    artifactId: artifact.value.id,
-    username: currentSession.value?.username ?? '当前用户',
-    content,
-  })
-
-  commentForm.content = ''
-  commentSuccess.value = '评论已发布，管理员回复后会显示在评论下方。'
-  commentsOpen.value = true
 }
 
-function isCommentLiked(comment) {
-  const username = currentSession.value?.username
-  if (!username) {
-    return false
-  }
-
-  return Array.isArray(comment.likedBy) && comment.likedBy.includes(username)
-}
-
-function handleCommentLike(commentId) {
-  const username = currentSession.value?.username
-  if (!username) {
-    return
-  }
-
-  toggleArtifactCommentLike(commentId, username)
-}
+watch(
+  () => route.params.id,
+  (id) => {
+    loadArtifact(id)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
-  <template v-if="artifact">
+  <section v-if="loading" class="section">
+    <div class="empty">文物详情加载中...</div>
+  </section>
+
+  <section v-else-if="error" class="section">
+    <div class="empty">{{ error }}</div>
+  </section>
+
+  <template v-else-if="artifact">
     <section class="detail-layout">
       <article class="detail-panel">
         <figure class="detail-figure media-frame">
-          <img :src="artifact.imageUrl || artifact.image" :alt="artifact.name" />
+          <img :src="resolveArtifactImage(artifact.imageUrl)" :alt="artifact.name" />
         </figure>
 
         <div class="tag-row" style="margin-top: 1rem">
@@ -174,93 +126,6 @@ function handleCommentLike(commentId) {
     </section>
 
     <section class="section">
-      <div class="comment-section">
-        <button
-          type="button"
-          class="comment-toggle"
-          :class="{ 'is-open': commentsOpen }"
-          @click="toggleComments"
-        >
-          <span class="comment-toggle__copy">
-            <strong>文物评论</strong>
-            <small>默认收起，点击后查看评论并发表评论</small>
-          </span>
-          <span class="comment-toggle__summary">{{ displayedComments.length }} 条评论</span>
-          <span class="comment-toggle__icon">⌄</span>
-        </button>
-
-        <div v-show="commentsOpen" class="comment-panel">
-          <form class="comment-editor" @submit.prevent="handleCommentSubmit">
-            <textarea
-              id="artifact-comment-textarea"
-              v-model="commentForm.content"
-              class="textarea comment-editor__textarea"
-              placeholder="请输入你对这件文物的评论内容。"
-              @input="handleCommentTyping"
-            ></textarea>
-            <button type="submit" class="button button--primary comment-editor__submit">
-              发表评论
-            </button>
-          </form>
-
-          <div class="comment-panel__meta">
-            <p v-if="commentError" class="field-error">{{ commentError }}</p>
-            <p v-else-if="commentSuccess" class="comment-feedback">{{ commentSuccess }}</p>
-          </div>
-
-          <div class="comment-feed">
-            <div class="comment-feed__head">
-              <strong>最热评论</strong>
-              <span>默认按点赞数量从高到低排序，可滚动查看更多</span>
-            </div>
-
-            <div class="comment-list">
-              <article v-for="item in displayedComments" :key="item.id" class="comment-card">
-                <div class="comment-card__meta">
-                  <strong>{{ item.username }}</strong>
-                  <span>{{ item.createdAt }}</span>
-                </div>
-                <p>{{ item.content }}</p>
-                <div
-                  v-if="getArtifactCommentRepliesByCommentId(item.id).length"
-                  class="comment-replies"
-                >
-                  <article
-                    v-for="reply in getArtifactCommentRepliesByCommentId(item.id)"
-                    :key="reply.id"
-                    class="comment-reply"
-                  >
-                    <div class="comment-reply__meta">
-                      <span class="comment-reply__label">回复</span>
-                      <strong>{{ reply.username }}</strong>
-                      <span>{{ reply.createdAt }}</span>
-                    </div>
-                    <p>{{ reply.content }}</p>
-                  </article>
-                </div>
-                <div class="comment-card__footer">
-                  <button
-                    type="button"
-                    class="comment-like-button"
-                    :class="{ 'is-active': isCommentLiked(item) }"
-                    @click="handleCommentLike(item.id)"
-                  >
-                    <span>{{ isCommentLiked(item) ? '已赞' : '点赞' }}</span>
-                    <strong>{{ item.likeCount }}</strong>
-                  </button>
-                </div>
-              </article>
-
-              <div v-if="!displayedComments.length" class="empty comment-empty">
-                当前还没有评论，欢迎留下第一条看法。
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
       <div class="section-header">
         <div>
           <h2>同馆文物</h2>
@@ -268,9 +133,11 @@ function handleCommentLike(commentId) {
         </div>
       </div>
 
-      <div class="card-grid">
+      <div v-if="!relatedArtifacts.length" class="empty">当前没有可展示的同馆文物。</div>
+
+      <div v-else class="card-grid">
         <article v-for="item in relatedArtifacts" :key="item.id" class="card">
-          <img :src="item.imageUrl || item.image" :alt="item.name" class="card-media" />
+          <img :src="resolveArtifactImage(item.imageUrl)" :alt="item.name" class="card-media" />
           <div class="card-body">
             <div class="tag-row">
               <span class="tag">{{ item.dynasty }}</span>
@@ -284,4 +151,8 @@ function handleCommentLike(commentId) {
       </div>
     </section>
   </template>
+
+  <section v-else class="section">
+    <div class="empty">未找到对应文物。</div>
+  </section>
 </template>

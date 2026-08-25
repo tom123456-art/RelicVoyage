@@ -1,7 +1,7 @@
 <script setup>
-import { computed, reactive } from 'vue'
-import { artifacts, artifactFilters } from '@/data/mock'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { endpoints } from '@/data/endpoints'
+import { fetchArtifacts, resolveArtifactImage } from '@/api/artifacts'
 
 const filters = reactive({
   keyword: '',
@@ -10,22 +10,47 @@ const filters = reactive({
   type: '全部',
 })
 
+const loading = ref(false)
+const error = ref('')
+const artifacts = ref([])
+
 const noop = () => {}
 
+const dynastyOptions = computed(() => ['全部', ...new Set(artifacts.value.map((item) => item.dynasty).filter(Boolean))])
+const materialOptions = computed(() => ['全部', ...new Set(artifacts.value.map((item) => item.material).filter(Boolean))])
+const typeOptions = computed(() => ['全部', ...new Set(artifacts.value.map((item) => item.type).filter(Boolean))])
+
 const filteredArtifacts = computed(() =>
-  artifacts.filter((item) => {
+  artifacts.value.filter((item) => {
     const keyword = filters.keyword.trim().toLowerCase()
     const keywordMatch =
       !keyword ||
-      item.name.toLowerCase().includes(keyword) ||
-      item.origin.toLowerCase().includes(keyword) ||
-      item.museumName.toLowerCase().includes(keyword)
+      item.name?.toLowerCase().includes(keyword) ||
+      item.origin?.toLowerCase().includes(keyword) ||
+      item.museumName?.toLowerCase().includes(keyword) ||
+      item.description?.toLowerCase().includes(keyword)
+
     const dynastyMatch = filters.dynasty === '全部' || item.dynasty === filters.dynasty
     const materialMatch = filters.material === '全部' || item.material === filters.material
     const typeMatch = filters.type === '全部' || item.type === filters.type
+
     return keywordMatch && dynastyMatch && materialMatch && typeMatch
   }),
 )
+
+async function loadArtifacts() {
+  loading.value = true
+  error.value = ''
+
+  try {
+    artifacts.value = await fetchArtifacts()
+  } catch (err) {
+    error.value = '文物数据加载失败，请检查后端服务和数据库连接。'
+    console.error(err)
+  } finally {
+    loading.value = false
+  }
+}
 
 function resetSearch() {
   filters.keyword = ''
@@ -33,6 +58,8 @@ function resetSearch() {
   filters.material = '全部'
   filters.type = '全部'
 }
+
+onMounted(loadArtifacts)
 </script>
 
 <template>
@@ -54,14 +81,14 @@ function resetSearch() {
               v-model="filters.keyword"
               class="input"
               name="keyword"
-              placeholder="名称、出土地点、博物馆"
+              placeholder="名称、出土地、博物馆"
             />
           </div>
 
           <div class="field">
             <label class="label" for="artifact-dynasty">朝代</label>
             <select id="artifact-dynasty" v-model="filters.dynasty" class="select" name="dynasty">
-              <option v-for="item in artifactFilters.dynasties" :key="item" :value="item">
+              <option v-for="item in dynastyOptions" :key="item" :value="item">
                 {{ item }}
               </option>
             </select>
@@ -70,7 +97,7 @@ function resetSearch() {
           <div class="field">
             <label class="label" for="artifact-material">材质</label>
             <select id="artifact-material" v-model="filters.material" class="select" name="material">
-              <option v-for="item in artifactFilters.materials" :key="item" :value="item">
+              <option v-for="item in materialOptions" :key="item" :value="item">
                 {{ item }}
               </option>
             </select>
@@ -79,7 +106,7 @@ function resetSearch() {
           <div class="field">
             <label class="label" for="artifact-type">类型</label>
             <select id="artifact-type" v-model="filters.type" class="select" name="type">
-              <option v-for="item in artifactFilters.types" :key="item" :value="item">
+              <option v-for="item in typeOptions" :key="item" :value="item">
                 {{ item }}
               </option>
             </select>
@@ -92,9 +119,13 @@ function resetSearch() {
         </form>
       </aside>
 
-      <div class="card-grid">
+      <div v-if="loading" class="empty">文物数据加载中...</div>
+      <div v-else-if="error" class="empty">{{ error }}</div>
+      <div v-else-if="!filteredArtifacts.length" class="empty">当前筛选条件下没有文物数据。</div>
+
+      <div v-else class="card-grid">
         <article v-for="item in filteredArtifacts" :key="item.id" class="card">
-          <img :src="item.imageUrl || item.image" :alt="item.name" class="card-media" />
+          <img :src="resolveArtifactImage(item.imageUrl)" :alt="item.name" class="card-media" />
           <div class="card-body">
             <div class="tag-row">
               <span class="tag">{{ item.dynasty }}</span>
